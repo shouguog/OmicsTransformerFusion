@@ -1,0 +1,486 @@
+======================================================================
+HiOmicsFormer Configuration (Matches Manuscript Table 2)
+======================================================================
+  data_path: ../data/MLOmics/Main_Dataset
+  results_path: ./results_revision
+  figures_path: ./figures_revision
+  modalities: ['mRNA', 'miRNA', 'Methy', 'CNV']
+  use_all_cancers: True
+  data_variant: Original
+  feature_selection_top_k: 2000
+  hidden_dim: 256
+  latent_dim: 128
+  num_encoder_layers: 4
+  num_heads: 8
+  num_feature_clusters: 16
+  group_sizes: (16, 32, 64)
+  dropout: 0.1
+  num_cross_layers: 2
+  num_fusion_layers: 2
+  projection_dim: 128
+  num_clusters: 9
+  cluster_alpha: 1.0
+  contrastive_temperature: 0.07
+  lambda_recon: 1.0
+  lambda_CL: 0.1
+  lambda_DEC: 0.5
+  lambda_kl: 0.01
+  learning_rate: 0.0001
+  weight_decay: 1e-05
+  batch_size: 256
+  max_epochs: 200
+  patience: 20
+  warmup_epochs: 10
+  n_folds: 2
+  top_k_biomarkers: 50
+Discovered 14 cancer types:
+  ACC    (clustering    ) — Adrenocortical Carcinoma
+  KIRC   (clustering    ) — Kidney Renal Clear Cell Carcinoma
+  KIRP   (clustering    ) — Kidney Renal Papillary Cell Carcinoma
+  LIHC   (clustering    ) — Liver Hepatocellular Carcinoma
+  LUAD   (clustering    ) — Lung Adenocarcinoma
+  LUSC   (clustering    ) — Lung Squamous Cell Carcinoma
+  PRAD   (clustering    ) — Prostate Adenocarcinoma
+  THCA   (clustering    ) — Thyroid Carcinoma
+  THYM   (clustering    ) — Thymoma
+  BRCA   (classification) — Breast Invasive Carcinoma
+  COAD   (classification) — Colon Adenocarcinoma
+  GBM    (classification) — Glioblastoma Multiforme
+  LGG    (classification) — Brain Lower Grade Glioma
+  OV     (classification) — Ovarian Serous Cystadenocarcinoma
+======================================================================
+DATA LOADING COMPLETE
+======================================================================
+Total patients: 3304
+Cancer types loaded: 12
+  mRNA: (3304, 25024) (samples × features)
+  miRNA: (3304, 2062) (samples × features)
+  Methy: (3304, 25545) (samples × features)
+  CNV: (3304, 21482) (samples × features)
+Survival data: 2269 patients
+Survival columns: ['event_observed', 'survival_times', 'cancer_type']
+⚠ Updating config.num_clusters: 9 → 12 (matching loaded cancer types)
+======================================================================
+DATASET SUMMARY
+======================================================================
+Cancer types loaded: 12
+Total patients: 3304
+Unique labels: [np.str_('ACC'), np.str_('COAD'), np.str_('GBM'), np.str_('KIRC'), np.str_('KIRP'), np.str_('LGG'), np.str_('LIHC'), np.str_('LUSC'), np.str_('OV'), np.str_('PRAD'), np.str_('THCA'), np.str_('THYM')]
+  PRAD  :  368 patients  Prostate Adenocarcinoma
+  LIHC  :  364 patients  Liver Hepatocellular Carcinoma
+  LUSC  :  363 patients  Lung Squamous Cell Carcinoma
+  KIRC  :  314 patients  Kidney Renal Clear Cell Carcinoma
+  THCA  :  291 patients  Thyroid Carcinoma
+  OV    :  284 patients  Ovarian Serous Cystadenocarcinoma
+  KIRP  :  273 patients  Kidney Renal Papillary Cell Carcinoma
+  COAD  :  260 patients  Colon Adenocarcinoma
+  LGG   :  247 patients  Brain Lower Grade Glioma
+  GBM   :  244 patients  Glioblastoma Multiforme
+  ACC   :  177 patients  Adrenocortical Carcinoma
+  THYM  :  119 patients  Thymoma
+Dataset statistics:
+  Total patients: 3,304
+  Cancer types: 12
+Preprocessing omics data (with documented feature selection)...
+  mRNA: 25024 → 2000 features (MAD top-2000)
+    Imputing 1971486 missing values (k-NN, k=10)
+  miRNA: 2062 → 1870 features (MAD top-1870)
+    Imputing 4326466 missing values (k-NN, k=10)
+  Methy: 25545 → 2000 features (MAD top-2000)
+    Imputing 497879 missing values (k-NN, k=10)
+  CNV: 21482 → 2000 features (MAD top-2000)
+    Imputing 157530 missing values (k-NN, k=10)
+Encoded 12 cancer types
+Processed feature dimensions: {'mRNA': (3304, 2000), 'miRNA': (3304, 1870), 'Methy': (3304, 2000), 'CNV': (3304, 2000)}
+Dataset: 3304 samples
+Feature dims: {'mRNA': 2000, 'miRNA': 1870, 'Methy': 2000, 'CNV': 2000}
+HiOmicsFormer(
+  (encoders): ModuleDict(
+    (mRNA): HierarchicalOmicsEncoder(
+      (input_proj): Sequential(
+        (0): Linear(in_features=2000, out_features=256, bias=True)
+        (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (2): GELU(approximate='none')
+      )
+      (local_projections): ModuleList(
+        (0): Sequential(
+          (0): Linear(in_features=16, out_features=256, bias=True)
+          (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          (2): GELU(approximate='none')
+        )
+        (1): Sequential(
+          (0): Linear(in_features=32, out_features=256, bias=True)
+          (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          (2): GELU(approximate='none')
+        )
+        (2): Sequential(
+          (0): Linear(in_features=64, out_features=256, bias=True)
+          (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          (2): GELU(approximate='none')
+        )
+      )
+      (cls_tokens): ParameterList(
+          (0): Parameter containing: [torch.float32 of size 1x1x256]
+          (1): Parameter containing: [torch.float32 of size 1x1x256]
+          (2): Parameter containing: [torch.float32 of size 1x1x256]
+      )
+      (pos_encodings): ModuleList(
+        (0-2): 3 x PositionalEncoding(
+          (dropout): Dropout(p=0.1, inplace=False)
+        )
+      )
+      (local_transformers): ModuleList(
+        (0-2): 3 x ModuleList(
+          (0-3): 4 x TransformerBlock(
+            (attn): MultiheadAttention(
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=256, out_features=256, bias=True)
+            )
+            (ff): FeedForward(
+              (net): Sequential(
+                (0): Linear(in_features=256, out_features=1024, bias=True)
+                (1): GELU(approximate='none')
+                (2): Dropout(p=0.1, inplace=False)
+                (3): Linear(in_features=1024, out_features=256, bias=True)
+                (4): Dropout(p=0.1, inplace=False)
+              )
+            )
+            (norm1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+            (norm2): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          )
+        )
+      )
+      (scale_fusion): Sequential(
+        (0): Linear(in_features=768, out_features=512, bias=True)
+        (1): GELU(approximate='none')
+        (2): Dropout(p=0.1, inplace=False)
+        (3): Linear(in_features=512, out_features=256, bias=True)
+        (4): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+      )
+      (output_norm): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+    )
+    (miRNA): HierarchicalOmicsEncoder(
+      (input_proj): Sequential(
+        (0): Linear(in_features=1870, out_features=256, bias=True)
+        (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (2): GELU(approximate='none')
+      )
+      (local_projections): ModuleList(
+        (0): Sequential(
+          (0): Linear(in_features=16, out_features=256, bias=True)
+          (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          (2): GELU(approximate='none')
+        )
+        (1): Sequential(
+          (0): Linear(in_features=32, out_features=256, bias=True)
+          (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          (2): GELU(approximate='none')
+        )
+        (2): Sequential(
+          (0): Linear(in_features=64, out_features=256, bias=True)
+          (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          (2): GELU(approximate='none')
+        )
+      )
+      (cls_tokens): ParameterList(
+          (0): Parameter containing: [torch.float32 of size 1x1x256]
+          (1): Parameter containing: [torch.float32 of size 1x1x256]
+          (2): Parameter containing: [torch.float32 of size 1x1x256]
+      )
+      (pos_encodings): ModuleList(
+        (0-2): 3 x PositionalEncoding(
+          (dropout): Dropout(p=0.1, inplace=False)
+        )
+      )
+      (local_transformers): ModuleList(
+        (0-2): 3 x ModuleList(
+          (0-3): 4 x TransformerBlock(
+            (attn): MultiheadAttention(
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=256, out_features=256, bias=True)
+            )
+            (ff): FeedForward(
+              (net): Sequential(
+                (0): Linear(in_features=256, out_features=1024, bias=True)
+                (1): GELU(approximate='none')
+                (2): Dropout(p=0.1, inplace=False)
+                (3): Linear(in_features=1024, out_features=256, bias=True)
+                (4): Dropout(p=0.1, inplace=False)
+              )
+            )
+            (norm1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+            (norm2): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          )
+        )
+      )
+      (scale_fusion): Sequential(
+        (0): Linear(in_features=768, out_features=512, bias=True)
+        (1): GELU(approximate='none')
+        (2): Dropout(p=0.1, inplace=False)
+        (3): Linear(in_features=512, out_features=256, bias=True)
+        (4): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+      )
+      (output_norm): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+    )
+    (Methy): HierarchicalOmicsEncoder(
+      (input_proj): Sequential(
+        (0): Linear(in_features=2000, out_features=256, bias=True)
+        (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (2): GELU(approximate='none')
+      )
+      (local_projections): ModuleList(
+        (0): Sequential(
+          (0): Linear(in_features=16, out_features=256, bias=True)
+          (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          (2): GELU(approximate='none')
+        )
+        (1): Sequential(
+          (0): Linear(in_features=32, out_features=256, bias=True)
+          (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          (2): GELU(approximate='none')
+        )
+        (2): Sequential(
+          (0): Linear(in_features=64, out_features=256, bias=True)
+          (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          (2): GELU(approximate='none')
+        )
+      )
+      (cls_tokens): ParameterList(
+          (0): Parameter containing: [torch.float32 of size 1x1x256]
+          (1): Parameter containing: [torch.float32 of size 1x1x256]
+          (2): Parameter containing: [torch.float32 of size 1x1x256]
+      )
+      (pos_encodings): ModuleList(
+        (0-2): 3 x PositionalEncoding(
+          (dropout): Dropout(p=0.1, inplace=False)
+        )
+      )
+      (local_transformers): ModuleList(
+        (0-2): 3 x ModuleList(
+          (0-3): 4 x TransformerBlock(
+            (attn): MultiheadAttention(
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=256, out_features=256, bias=True)
+            )
+            (ff): FeedForward(
+              (net): Sequential(
+                (0): Linear(in_features=256, out_features=1024, bias=True)
+                (1): GELU(approximate='none')
+                (2): Dropout(p=0.1, inplace=False)
+                (3): Linear(in_features=1024, out_features=256, bias=True)
+                (4): Dropout(p=0.1, inplace=False)
+              )
+            )
+            (norm1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+            (norm2): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          )
+        )
+      )
+      (scale_fusion): Sequential(
+        (0): Linear(in_features=768, out_features=512, bias=True)
+        (1): GELU(approximate='none')
+        (2): Dropout(p=0.1, inplace=False)
+        (3): Linear(in_features=512, out_features=256, bias=True)
+        (4): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+      )
+      (output_norm): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+    )
+    (CNV): HierarchicalOmicsEncoder(
+      (input_proj): Sequential(
+        (0): Linear(in_features=2000, out_features=256, bias=True)
+        (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (2): GELU(approximate='none')
+      )
+      (local_projections): ModuleList(
+        (0): Sequential(
+          (0): Linear(in_features=16, out_features=256, bias=True)
+          (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          (2): GELU(approximate='none')
+        )
+        (1): Sequential(
+          (0): Linear(in_features=32, out_features=256, bias=True)
+          (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          (2): GELU(approximate='none')
+        )
+        (2): Sequential(
+          (0): Linear(in_features=64, out_features=256, bias=True)
+          (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          (2): GELU(approximate='none')
+        )
+      )
+      (cls_tokens): ParameterList(
+          (0): Parameter containing: [torch.float32 of size 1x1x256]
+          (1): Parameter containing: [torch.float32 of size 1x1x256]
+          (2): Parameter containing: [torch.float32 of size 1x1x256]
+      )
+      (pos_encodings): ModuleList(
+        (0-2): 3 x PositionalEncoding(
+          (dropout): Dropout(p=0.1, inplace=False)
+        )
+      )
+      (local_transformers): ModuleList(
+        (0-2): 3 x ModuleList(
+          (0-3): 4 x TransformerBlock(
+            (attn): MultiheadAttention(
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=256, out_features=256, bias=True)
+            )
+            (ff): FeedForward(
+              (net): Sequential(
+                (0): Linear(in_features=256, out_features=1024, bias=True)
+                (1): GELU(approximate='none')
+                (2): Dropout(p=0.1, inplace=False)
+                (3): Linear(in_features=1024, out_features=256, bias=True)
+                (4): Dropout(p=0.1, inplace=False)
+              )
+            )
+            (norm1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+            (norm2): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+          )
+        )
+      )
+      (scale_fusion): Sequential(
+        (0): Linear(in_features=768, out_features=512, bias=True)
+        (1): GELU(approximate='none')
+        (2): Dropout(p=0.1, inplace=False)
+        (3): Linear(in_features=512, out_features=256, bias=True)
+        (4): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+      )
+      (output_norm): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+    )
+  )
+  (cocl): CrossOmicsContrastiveLearning(
+    (projectors): ModuleDict(
+      (mRNA): Sequential(
+        (0): Linear(in_features=256, out_features=256, bias=True)
+        (1): ReLU()
+        (2): Linear(in_features=256, out_features=128, bias=True)
+      )
+      (miRNA): Sequential(
+        (0): Linear(in_features=256, out_features=256, bias=True)
+        (1): ReLU()
+        (2): Linear(in_features=256, out_features=128, bias=True)
+      )
+      (Methy): Sequential(
+        (0): Linear(in_features=256, out_features=256, bias=True)
+        (1): ReLU()
+        (2): Linear(in_features=256, out_features=128, bias=True)
+      )
+      (CNV): Sequential(
+        (0): Linear(in_features=256, out_features=256, bias=True)
+        (1): ReLU()
+        (2): Linear(in_features=256, out_features=128, bias=True)
+      )
+    )
+  )
+  (cross_modal_layers): ModuleList(
+    (0-1): 2 x GatedCrossModalAttention(
+      (cross_attn): ModuleDict(
+        (mRNA): MultiheadAttention(
+          (out_proj): NonDynamicallyQuantizableLinear(in_features=256, out_features=256, bias=True)
+        )
+        (miRNA): MultiheadAttention(
+          (out_proj): NonDynamicallyQuantizableLinear(in_features=256, out_features=256, bias=True)
+        )
+        (Methy): MultiheadAttention(
+          (out_proj): NonDynamicallyQuantizableLinear(in_features=256, out_features=256, bias=True)
+        )
+        (CNV): MultiheadAttention(
+          (out_proj): NonDynamicallyQuantizableLinear(in_features=256, out_features=256, bias=True)
+        )
+      )
+      (gate_net): ModuleDict(
+        (mRNA): Sequential(
+          (0): Linear(in_features=512, out_features=64, bias=True)
+          (1): Tanh()
+          (2): Linear(in_features=64, out_features=1, bias=True)
+        )
+        (miRNA): Sequential(
+          (0): Linear(in_features=512, out_features=64, bias=True)
+          (1): Tanh()
+          (2): Linear(in_features=64, out_features=1, bias=True)
+        )
+        (Methy): Sequential(
+          (0): Linear(in_features=512, out_features=64, bias=True)
+          (1): Tanh()
+          (2): Linear(in_features=64, out_features=1, bias=True)
+        )
+        (CNV): Sequential(
+          (0): Linear(in_features=512, out_features=64, bias=True)
+          (1): Tanh()
+          (2): Linear(in_features=64, out_features=1, bias=True)
+        )
+      )
+      (norms): ModuleDict(
+        (mRNA): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (miRNA): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (Methy): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+        (CNV): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+      )
+      (ffs): ModuleDict(
+        (mRNA): FeedForward(
+          (net): Sequential(
+            (0): Linear(in_features=256, out_features=1024, bias=True)
+            (1): GELU(approximate='none')
+            (2): Dropout(p=0.1, inplace=False)
+            (3): Linear(in_features=1024, out_features=256, bias=True)
+            (4): Dropout(p=0.1, inplace=False)
+          )
+        )
+        (miRNA): FeedForward(
+          (net): Sequential(
+            (0): Linear(in_features=256, out_features=1024, bias=True)
+            (1): GELU(approximate='none')
+            (2): Dropout(p=0.1, inplace=False)
+            (3): Linear(in_features=1024, out_features=256, bias=True)
+            (4): Dropout(p=0.1, inplace=False)
+          )
+        )
+        (Methy): FeedForward(
+          (net): Sequential(
+            (0): Linear(in_features=256, out_features=1024, bias=True)
+            (1): GELU(approximate='none')
+            (2): Dropout(p=0.1, inplace=False)
+            (3): Linear(in_features=1024, out_features=256, bias=True)
+            (4): Dropout(p=0.1, inplace=False)
+          )
+        )
+        (CNV): FeedForward(
+          (net): Sequential(
+            (0): Linear(in_features=256, out_features=1024, bias=True)
+            (1): GELU(approximate='none')
+            (2): Dropout(p=0.1, inplace=False)
+            (3): Linear(in_features=1024, out_features=256, bias=True)
+            (4): Dropout(p=0.1, inplace=False)
+          )
+        )
+      )
+    )
+  )
+  (fusion): Sequential(
+    (0): Linear(in_features=1024, out_features=256, bias=True)
+    (1): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+    (2): GELU(approximate='none')
+  )
+  (fc_mu): Linear(in_features=256, out_features=128, bias=True)
+  (fc_logvar): Linear(in_features=256, out_features=128, bias=True)
+  (cluster_head): Linear(in_features=128, out_features=12, bias=True)
+  (decoders): ModuleDict(
+    (mRNA): Sequential(
+      (0): Linear(in_features=128, out_features=256, bias=True)
+      (1): GELU(approximate='none')
+      (2): Linear(in_features=256, out_features=2000, bias=True)
+    )
+    (miRNA): Sequential(
+      (0): Linear(in_features=128, out_features=256, bias=True)
+      (1): GELU(approximate='none')
+      (2): Linear(in_features=256, out_features=1870, bias=True)
+    )
+    (Methy): Sequential(
+      (0): Linear(in_features=128, out_features=256, bias=True)
+      (1): GELU(approximate='none')
+      (2): Linear(in_features=256, out_features=2000, bias=True)
+    )
+    (CNV): Sequential(
+      (0): Linear(in_features=128, out_features=256, bias=True)
+      (1): GELU(approximate='none')
+      (2): Linear(in_features=256, out_features=2000, bias=True)
+    )
+  )
+)
