@@ -1,62 +1,4 @@
-# %% [markdown]
-# # HiOmicsFormer — Revised Notebook (R1 Response)
-# 
-# **Manuscript:** *HiOmicsFormer: A Hierarchical Multi-Modal Transformer Framework with Cross-Omics Contrastive Learning for Pan-Cancer Biomarker Discovery and Molecular Subtype Stratification*
-# 
-# **Journal:** Advances in Biomarker Sciences and Technology (Elsevier)
-# 
-# ---
-# 
-# ## Revision Summary
-# 
-# | # | Reviewer Concern | Status | Cell |
-# |---|-----------------|--------|------|
-# | 4.1 | Dataset: 9 vs 32 cancer types | ✅ Load ALL available types | Cell 3 |
-# | 4.2 | No cross-validation | ✅ 5-fold stratified CV | Cell 11 |
-# | 4.3 | Baselines never implemented | ✅ SNF, MOFA+, MOGONET + simple | Cell 13 |
-# | 4.4 | Biomarker mismatch | ✅ Attention + gradient extraction | Cell 16 |
-# | 4.5 | Survival analysis failed | ✅ Fixed column mapping | Cell 15 |
-# | 4.6 | Imputation sensitivity missing | ✅ k-NN, MICE, Mean compared | Cell 20 |
-# | 4.8 | Architecture mismatch (d=128→256) | ✅ Matches Table 2 | Cell 8 |
-# | 5.1 | Enrichment FDR not significant | ✅ Honest reporting | Cell 18 |
-# | 5.2 | Feature selection undocumented | ✅ MAD top-k documented | Cell 5 |
-# | 5.6 | batch_size=66 vs 256 | ✅ Fixed to 256 | Cell 2 |
-# | 5.7 | Loss weights mismatch | ✅ Eq.10: 1.0/0.1/0.5 | Cell 9 |
-# | 5.8 | lr=5e-4 vs 1e-4 | ✅ Fixed to 1e-4 | Cell 2 |
-# | 6.2 | No reproducibility check | ✅ Multi-seed stability | Cell 22 |
-# 
-# ---
-# 
-# ## Notebook Structure
-# 
-# | Section | Cells | Description |
-# |---------|-------|-------------|
-# | **Setup** | 1–2 | Environment, configuration |
-# | **Data** | 3–4 | Loading, exploration & visualization |
-# | **Preprocessing** | 5–6 | Feature selection, normalization, visualization |
-# | **Model** | 7–9 | Architecture, dataset, loss function |
-# | **Training** | 10–12 | Utilities, 5-fold CV, training visualization |
-# | **Baselines** | 13–14 | All baselines, comparison visualization |
-# | **Survival** | 15 | KM curves, Cox regression, forest plot |
-# | **Biomarkers** | 16–17 | Extraction, importance visualization |
-# | **Enrichment** | 18–19 | Pathway analysis, dot plot |
-# | **Sensitivity** | 20–21 | Imputation comparison, heatmap |
-# | **Sub-analysis** | 22–23 | Within-cancer, multi-seed stability |
-# | **Summary** | 24 | Complete dashboard & summary |
-# 
-# %%
-# ============================================================================
-# CELL 1: ENVIRONMENT SETUP
-# ============================================================================
-# Install required packages (uncomment as needed)
-# !pip install lifelines scikit-survival adjustText snfpy mofapy2
-
 import os, sys, json, time, warnings, requests
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
-from pathlib import Path
-from collections import defaultdict
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -65,8 +7,6 @@ from matplotlib.patches import FancyBboxPatch
 import seaborn as sns
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 
 from sklearn.model_selection import StratifiedKFold, train_test_split
@@ -150,17 +90,6 @@ for k, v in vars(config).items():
 # ============================================================================
 # CELL 3: DATA LOADING — ALL CANCER TYPES (Reviewer 4.1)
 # ============================================================================
-# REVIEWER 4.1: "The manuscript repeatedly states 8,314 patients across 32
-# cancer types. The notebook loads exactly 9." → Now loads ALL available types
-# from BOTH Clustering_datasets AND Classification_datasets.
-#
-# MLOmics directory structure (verified from project tree):
-#   Clustering_datasets/{CANCER}/{variant}/{CANCER}_{mod}[_suffix].csv
-#   Clustering_datasets/{CANCER}/{variant}/survival_{CANCER}.csv
-#   Classification_datasets/GS-{CANCER}/{variant}/{CANCER}_{mod}[_suffix].csv
-#   Classification_datasets/GS-{CANCER}/{variant}/{CANCER}_label_num.csv
-#   Classification_datasets/Pan-cancer/Original/Pan-cancer_{mod}.csv
-
 # ---------- Execute ----------
 from dataset.loader import MLOmicsDataLoader
 data_loader = MLOmicsDataLoader(config.data_path, data_variant=config.data_variant)
@@ -192,118 +121,9 @@ for cancer, n in sorted(quality_report.items(), key=lambda x: -x[1]):
 # ============================================================================
 # CELL 4: DATASET EXPLORATION & VISUALIZATION
 # ============================================================================
-# Comprehensive visual overview of the loaded pan-cancer dataset.
-
-fig = plt.figure(figsize=(20, 14))
-gs = gridspec.GridSpec(2, 3, hspace=0.35, wspace=0.35)
-
-# --- Fig 1a: Samples per cancer type (horizontal bar) ---
-ax1 = fig.add_subplot(gs[0, 0])
-cancers_sorted = sorted(quality_report.items(), key=lambda x: x[1], reverse=True)
-cancer_names = [c[0] for c in cancers_sorted]
-cancer_counts = [c[1] for c in cancers_sorted]
-colors_bar = [PALETTE[0] if c in [d[0] for d in discovered_cancers if d[2] == 'clustering']
-              else PALETTE[1] for c in cancer_names]
-bars = ax1.barh(range(len(cancer_names)), cancer_counts, color=colors_bar, edgecolor='white')
-ax1.set_yticks(range(len(cancer_names)))
-ax1.set_yticklabels(cancer_names, fontsize=9)
-ax1.invert_yaxis()
-ax1.set_xlabel('Number of Patients')
-ax1.set_title('(a) Samples per Cancer Type', fontweight='bold')
-for i, v in enumerate(cancer_counts):
-    ax1.text(v + 3, i, str(v), va='center', fontsize=8)
-# Legend
-from matplotlib.patches import Patch
-ax1.legend([Patch(color=PALETTE[0]), Patch(color=PALETTE[1])],
-           ['Clustering', 'Classification'], loc='lower right', fontsize=8)
-
-# --- Fig 1b: Feature dimensions per modality ---
-ax2 = fig.add_subplot(gs[0, 1])
-mod_names = list(omics_data.keys())
-feat_dims = [omics_data[m].shape[1] for m in mod_names]
-bars2 = ax2.bar(mod_names, feat_dims, color=[PALETTE[i] for i in range(len(mod_names))],
-                edgecolor='white', width=0.6)
-ax2.set_ylabel('Number of Features (raw)')
-ax2.set_title('(b) Feature Dimensions per Modality', fontweight='bold')
-for bar, v in zip(bars2, feat_dims):
-    ax2.text(bar.get_x() + bar.get_width()/2, v + 200, f'{v:,}', ha='center', fontsize=9)
-ax2.set_ylim(0, max(feat_dims) * 1.15)
-
-# --- Fig 1c: Total patient count + cancer type breakdown ---
-ax3 = fig.add_subplot(gs[0, 2])
-n_clustering = sum(quality_report[c] for c in quality_report
-                   if any(d[0] == c and d[2] == 'clustering' for d in discovered_cancers))
-n_classification = sum(quality_report[c] for c in quality_report
-                       if any(d[0] == c and d[2] == 'classification' for d in discovered_cancers))
-wedges, texts, autotexts = ax3.pie(
-    [n_clustering, n_classification],
-    labels=['Clustering\nDatasets', 'Classification\nDatasets'],
-    autopct='%1.1f%%', colors=[PALETTE[0], PALETTE[1]],
-    startangle=90, textprops={'fontsize': 10}
-)
-ax3.set_title(f'(c) Dataset Source\n(N={len(cancer_labels):,} total)', fontweight='bold')
-
-# --- Fig 1d: Sample distribution violin ---
-ax4 = fig.add_subplot(gs[1, 0])
-cancer_label_series = pd.Series(cancer_labels)
-counts_per_type = cancer_label_series.value_counts().sort_values(ascending=False)
-ax4.bar(range(len(counts_per_type)), counts_per_type.values,
-        color=PALETTE[2], edgecolor='white', alpha=0.8)
-ax4.set_xticks(range(len(counts_per_type)))
-ax4.set_xticklabels(counts_per_type.index, rotation=45, ha='right', fontsize=8)
-ax4.axhline(counts_per_type.mean(), color='red', linestyle='--', alpha=0.7,
-            label=f'Mean = {counts_per_type.mean():.0f}')
-ax4.set_ylabel('Number of Patients')
-ax4.set_title('(d) Sample Distribution Across Cancer Types', fontweight='bold')
-ax4.legend(fontsize=8)
-
-# --- Fig 1e: Missing data rate per modality ---
-ax5 = fig.add_subplot(gs[1, 1])
-missing_rates = {}
-for mod in mod_names:
-    df = omics_data[mod]
-    rate = df.isna().mean().mean() * 100
-    missing_rates[mod] = rate
-bars5 = ax5.bar(missing_rates.keys(), missing_rates.values(),
-                color=[PALETTE[i] for i in range(len(mod_names))],
-                edgecolor='white', width=0.6)
-ax5.set_ylabel('Missing Rate (%)')
-ax5.set_title('(e) Missing Data per Modality', fontweight='bold')
-for bar, v in zip(bars5, missing_rates.values()):
-    ax5.text(bar.get_x() + bar.get_width()/2, v + 0.1, f'{v:.2f}%', ha='center', fontsize=9)
-
-# --- Fig 1f: Survival data coverage ---
-ax6 = fig.add_subplot(gs[1, 2])
-if survival_data is not None:
-    surv_cancers = survival_data['cancer_type'].value_counts() if 'cancer_type' in survival_data.columns else pd.Series()
-    if len(surv_cancers) > 0:
-        ax6.barh(range(len(surv_cancers)), surv_cancers.values,
-                 color=PALETTE[3], edgecolor='white')
-        ax6.set_yticks(range(len(surv_cancers)))
-        ax6.set_yticklabels(surv_cancers.index, fontsize=9)
-        ax6.invert_yaxis()
-        ax6.set_xlabel('Patients with Survival Data')
-        ax6.set_title(f'(f) Survival Data Coverage\n(N={len(survival_data)})', fontweight='bold')
-    else:
-        ax6.text(0.5, 0.5, f'Survival: {len(survival_data)} patients\n(no cancer_type column)',
-                 ha='center', va='center', transform=ax6.transAxes)
-        ax6.set_title('(f) Survival Data Coverage', fontweight='bold')
-else:
-    ax6.text(0.5, 0.5, 'No survival data available', ha='center', va='center',
-             transform=ax6.transAxes, fontsize=12, color='gray')
-    ax6.set_title('(f) Survival Data Coverage', fontweight='bold')
-
-plt.suptitle('Figure 1: Pan-Cancer Dataset Overview', fontsize=16, fontweight='bold', y=1.02)
-os.makedirs(config.figures_path, exist_ok=True)
-plt.savefig(f'{config.figures_path}/fig1_dataset_overview.png', dpi=300, bbox_inches='tight')
-#plt.show()
-
 print(f"\nDataset statistics:")
 print(f"  Total patients: {len(cancer_labels):,}")
 print(f"  Cancer types: {len(quality_report)}")
-print(f"  Modalities: {mod_names}")
-print(f"  Feature dims: {dict(zip(mod_names, feat_dims))}")
-print(f"  Missing rates: {missing_rates}")
 
 # %%
 # ============================================================================
@@ -323,73 +143,14 @@ n_classes = len(label_encoder.classes_)
 print(f"\nEncoded {n_classes} cancer types")
 print(f"Processed feature dimensions: { {m: d.shape for m, d in processed_data.items()} }")
 
-# %%
 # ============================================================================
 # CELL 6: PREPROCESSING VISUALIZATION
 # ============================================================================
 # Visualize the feature selection pipeline and data quality after preprocessing.
 
-fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-
-# --- Fig 2a: Feature selection funnel ---
-ax = axes[0]
-mod_list = list(omics_data.keys())
-raw_dims = [omics_data[m].shape[1] for m in mod_list]
-proc_dims = [processed_data[m].shape[1] for m in mod_list]
-
-x = np.arange(len(mod_list))
-width = 0.35
-bars_raw = ax.bar(x - width/2, raw_dims, width, label='Raw', color=PALETTE[0], alpha=0.7, edgecolor='white')
-bars_proc = ax.bar(x + width/2, proc_dims, width, label='After Selection', color=PALETTE[1], alpha=0.9, edgecolor='white')
-ax.set_xticks(x)
-ax.set_xticklabels(mod_list)
-ax.set_ylabel('Number of Features')
-ax.set_title('(a) Feature Selection: Raw → Processed', fontweight='bold')
-ax.legend()
-for bar, v in zip(bars_raw, raw_dims):
-    ax.text(bar.get_x() + bar.get_width()/2, v + 200, f'{v:,}', ha='center', fontsize=7)
-for bar, v in zip(bars_proc, proc_dims):
-    ax.text(bar.get_x() + bar.get_width()/2, v + 200, f'{v:,}', ha='center', fontsize=7)
-
-# --- Fig 2b: Data shape summary ---
-ax = axes[1]
-n_samples = [processed_data[m].shape[0] for m in mod_list]
-n_features = [processed_data[m].shape[1] for m in mod_list]
-table_data = [[m, f'{s:,}', f'{f:,}'] for m, s, f in zip(mod_list, n_samples, n_features)]
-ax.axis('off')
-table = ax.table(cellText=table_data,
-                 colLabels=['Modality', 'Samples', 'Features'],
-                 cellLoc='center', loc='center',
-                 colColours=[PALETTE[0]]*3)
-table.auto_set_font_size(False)
-table.set_fontsize(11)
-table.scale(1, 1.8)
-ax.set_title('(b) Processed Data Dimensions', fontweight='bold', pad=20)
-
-# --- Fig 2c: PCA variance explained (first 50 components) ---
-ax = axes[2]
-for i, mod in enumerate(mod_list):
-    pca_temp = PCA(n_components=min(50, processed_data[mod].shape[1]))
-    pca_temp.fit(processed_data[mod])
-    cumvar = np.cumsum(pca_temp.explained_variance_ratio_) * 100
-    ax.plot(range(1, len(cumvar)+1), cumvar, label=mod, color=PALETTE[i], linewidth=2)
-ax.axhline(90, color='gray', linestyle='--', alpha=0.5, label='90% threshold')
-ax.set_xlabel('Number of PCA Components')
-ax.set_ylabel('Cumulative Variance Explained (%)')
-ax.set_title('(c) PCA Variance Explained', fontweight='bold')
-ax.legend(fontsize=8)
-ax.set_xlim(1, 50)
-
-plt.suptitle('Figure 2: Preprocessing & Feature Selection', fontsize=14, fontweight='bold', y=1.02)
-plt.tight_layout()
-plt.savefig(f'{config.figures_path}/fig2_preprocessing.png', dpi=300, bbox_inches='tight')
-#plt.show()
-
-# %%
 # ============================================================================
 # CELL 5: PyTorch Dataset
 # ============================================================================
-
 from dataset.dataset import MultiOmicsDataset
 full_dataset = MultiOmicsDataset(
     processed_data, labels_encoded,
@@ -399,9 +160,7 @@ feature_dims = full_dataset.get_feature_dims()
 print(f"Dataset: {len(full_dataset)} samples")
 print(f"Feature dims: {feature_dims}")
 
-# %%
 # ============================================================================
-
 # Verify architecture matches Table 2
 from models.transformer import HiOmicsFormer
 model = HiOmicsFormer(feature_dims, config).to(device)
@@ -412,13 +171,10 @@ print(f"Transformer layers: {config.num_encoder_layers} (manuscript: 4) ✓" if 
 print(f"Attention heads: {config.num_heads} (manuscript: 8) ✓" if config.num_heads == 8 else "✗ MISMATCH")
 print(f"Clusters: {config.num_clusters} (manuscript: 9) ✓" if config.num_clusters == 9 else "✗ MISMATCH")
 
-# %%
 # ============================================================================
 # CELL 7: LOSS FUNCTION — Eq. 10: L = L_recon + 0.1·L_CL + 0.5·L_DEC
 # ============================================================================
 # REVIEWER 5.7: Loss weights now match manuscript Eq. 10.
-
-
 print(f"Loss weights: L_recon={config.lambda_recon}, "
       f"λ_CL={config.lambda_CL}, λ_DEC={config.lambda_DEC}")
 print(f"Matches Eq. 10: L = {config.lambda_recon}·L_recon + "
@@ -428,7 +184,6 @@ print(f"Matches Eq. 10: L = {config.lambda_recon}·L_recon + "
 # ============================================================================
 # CELL 8: TRAINING UTILITIES
 # ============================================================================
-
 def init_centroids(model, loader, config, device):
     """K-means centroid initialization."""
     model.eval()
@@ -448,7 +203,6 @@ def init_centroids(model, loader, config, device):
 
 print("Training utilities defined.")
 
-# %%
 # ============================================================================
 # CELL 9: 5-FOLD STRATIFIED CROSS-VALIDATION (Reviewer 4.2)
 # ============================================================================
@@ -562,7 +316,6 @@ for metric in ['silhouette', 'nmi', 'ari']:
 # Keep last fold model for downstream analysis
 model = model_fold
 
-# %%
 # ============================================================================
 # CELL 12: TRAINING & EMBEDDING VISUALIZATION
 # ============================================================================
