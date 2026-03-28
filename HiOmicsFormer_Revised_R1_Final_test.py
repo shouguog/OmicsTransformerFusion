@@ -92,21 +92,6 @@ for k, v in vars(config).items():
     if not k.startswith('_'):
         print(f"  {k}: {v}")
 
-# %%
-# ============================================================================
-# CELL 3: DATA LOADING — ALL CANCER TYPES (Reviewer 4.1)
-# ============================================================================
-# REVIEWER 4.1: "The manuscript repeatedly states 8,314 patients across 32
-# cancer types. The notebook loads exactly 9." → Now loads ALL available types
-# from BOTH Clustering_datasets AND Classification_datasets.
-#
-# MLOmics directory structure (verified from project tree):
-#   Clustering_datasets/{CANCER}/{variant}/{CANCER}_{mod}[_suffix].csv
-#   Clustering_datasets/{CANCER}/{variant}/survival_{CANCER}.csv
-#   Classification_datasets/GS-{CANCER}/{variant}/{CANCER}_{mod}[_suffix].csv
-#   Classification_datasets/GS-{CANCER}/{variant}/{CANCER}_label_num.csv
-#   Classification_datasets/Pan-cancer/Original/Pan-cancer_{mod}.csv
-
 # ---------- Execute ----------
 from dataset.loader import MLOmicsDataLoader
 data_loader = MLOmicsDataLoader(config.data_path, data_variant=config.data_variant)
@@ -241,8 +226,8 @@ else:
 
 plt.suptitle('Figure 1: Pan-Cancer Dataset Overview', fontsize=16, fontweight='bold', y=1.02)
 os.makedirs(config.figures_path, exist_ok=True)
-#Shouguo plt.savefig(f'{config.figures_path}/fig1_dataset_overview.png', dpi=300, bbox_inches='tight')
-#Shouguo plt.show()
+#plt.savefig(f'{config.figures_path}/fig1_dataset_overview.png', dpi=300, bbox_inches='tight')
+#plt.show()
 
 print(f"\nDataset statistics:")
 print(f"  Total patients: {len(cancer_labels):,}")
@@ -322,8 +307,8 @@ ax.set_xlim(1, 50)
 
 plt.suptitle('Figure 2: Preprocessing & Feature Selection', fontsize=14, fontweight='bold', y=1.02)
 plt.tight_layout()
-#Shouguo plt.savefig(f'{config.figures_path}/fig2_preprocessing.png', dpi=300, bbox_inches='tight')
-#Shouguo plt.show()
+#plt.savefig(f'{config.figures_path}/fig2_preprocessing.png', dpi=300, bbox_inches='tight')
+#plt.show()
 
 # %%
 # ============================================================================
@@ -356,7 +341,6 @@ print(f"Clusters: {config.num_clusters} (manuscript: 9) ✓" if config.num_clust
 # ============================================================================
 # CELL 7: LOSS FUNCTION — Eq. 10: L = L_recon + 0.1·L_CL + 0.5·L_DEC
 # ============================================================================
-# REVIEWER 5.7: Loss weights now match manuscript Eq. 10.
 
 class HiOmicsLoss(nn.Module):
     def __init__(self, config):
