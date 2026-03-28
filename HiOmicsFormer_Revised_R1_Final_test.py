@@ -1,56 +1,3 @@
-# %% [markdown]
-# # HiOmicsFormer — Revised Notebook (R1 Response)
-# 
-# **Manuscript:** *HiOmicsFormer: A Hierarchical Multi-Modal Transformer Framework with Cross-Omics Contrastive Learning for Pan-Cancer Biomarker Discovery and Molecular Subtype Stratification*
-# 
-# **Journal:** Advances in Biomarker Sciences and Technology (Elsevier)
-# 
-# ---
-# 
-# ## Revision Summary
-# 
-# | # | Reviewer Concern | Status | Cell |
-# |---|-----------------|--------|------|
-# | 4.1 | Dataset: 9 vs 32 cancer types | ✅ Load ALL available types | Cell 3 |
-# | 4.2 | No cross-validation | ✅ 5-fold stratified CV | Cell 11 |
-# | 4.3 | Baselines never implemented | ✅ SNF, MOFA+, MOGONET + simple | Cell 13 |
-# | 4.4 | Biomarker mismatch | ✅ Attention + gradient extraction | Cell 16 |
-# | 4.5 | Survival analysis failed | ✅ Fixed column mapping | Cell 15 |
-# | 4.6 | Imputation sensitivity missing | ✅ k-NN, MICE, Mean compared | Cell 20 |
-# | 4.8 | Architecture mismatch (d=128→256) | ✅ Matches Table 2 | Cell 8 |
-# | 5.1 | Enrichment FDR not significant | ✅ Honest reporting | Cell 18 |
-# | 5.2 | Feature selection undocumented | ✅ MAD top-k documented | Cell 5 |
-# | 5.6 | batch_size=66 vs 256 | ✅ Fixed to 256 | Cell 2 |
-# | 5.7 | Loss weights mismatch | ✅ Eq.10: 1.0/0.1/0.5 | Cell 9 |
-# | 5.8 | lr=5e-4 vs 1e-4 | ✅ Fixed to 1e-4 | Cell 2 |
-# | 6.2 | No reproducibility check | ✅ Multi-seed stability | Cell 22 |
-# 
-# ---
-# 
-# ## Notebook Structure
-# 
-# | Section | Cells | Description |
-# |---------|-------|-------------|
-# | **Setup** | 1–2 | Environment, configuration |
-# | **Data** | 3–4 | Loading, exploration & visualization |
-# | **Preprocessing** | 5–6 | Feature selection, normalization, visualization |
-# | **Model** | 7–9 | Architecture, dataset, loss function |
-# | **Training** | 10–12 | Utilities, 5-fold CV, training visualization |
-# | **Baselines** | 13–14 | All baselines, comparison visualization |
-# | **Survival** | 15 | KM curves, Cox regression, forest plot |
-# | **Biomarkers** | 16–17 | Extraction, importance visualization |
-# | **Enrichment** | 18–19 | Pathway analysis, dot plot |
-# | **Sensitivity** | 20–21 | Imputation comparison, heatmap |
-# | **Sub-analysis** | 22–23 | Within-cancer, multi-seed stability |
-# | **Summary** | 24 | Complete dashboard & summary |
-# 
-# %%
-# ============================================================================
-# CELL 1: ENVIRONMENT SETUP
-# ============================================================================
-# Install required packages (uncomment as needed)
-# !pip install lifelines scikit-survival adjustText snfpy mofapy2
-
 import os, sys, json, time, warnings, requests
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
@@ -322,12 +269,6 @@ n_classes = len(label_encoder.classes_)
 print(f"\nEncoded {n_classes} cancer types")
 print(f"Processed feature dimensions: { {m: d.shape for m, d in processed_data.items()} }")
 
-# %%
-# ============================================================================
-# CELL 6: PREPROCESSING VISUALIZATION
-# ============================================================================
-# Visualize the feature selection pipeline and data quality after preprocessing.
-
 fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
 # --- Fig 2a: Feature selection funnel ---
@@ -569,16 +510,6 @@ def init_centroids(model, loader, config, device):
     return km.labels_
 
 print("Training utilities defined.")
-
-# %%
-# ============================================================================
-# CELL 9: 5-FOLD STRATIFIED CROSS-VALIDATION (Reviewer 4.2)
-# ============================================================================
-# REVIEWER 4.2: "Section 2.5.2 describes 5-fold CV. The notebook contains
-# no CV loop. Instead, a single train_test_split." → Implemented properly.
-#
-# Each fold: train model from scratch, evaluate on held-out fold.
-# Report: mean ± SD across 5 folds for ALL metrics.
 
 skf = StratifiedKFold(n_splits=config.n_folds, shuffle=True, random_state=SEED)
 
