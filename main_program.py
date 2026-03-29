@@ -1,3 +1,6 @@
+# %% [markdown]
+# **## Set up Environment ##**
+# %%
 import os, sys, json, time, warnings, requests
 import numpy as np
 import pandas as pd
@@ -36,7 +39,9 @@ from utils.training import HiOmicsLoss, HiOmicsTrainer
 
 warnings.filterwarnings('ignore')
 
-# ---------- Plotting defaults ----------
+# %% [markdown]
+# **## plotting Parameters ##**
+# %%
 plt.rcParams.update({
     'figure.dpi': 120,
     'savefig.dpi': 300,
@@ -53,8 +58,9 @@ plt.rcParams.update({
 PALETTE = sns.color_palette('Set2', 20)
 CMAP_SEQ = 'YlOrRd'
 CMAP_DIV = 'RdBu_r'
-
-# ---------- Reproducibility ----------
+# %% [markdown]
+# **## Reproducibility ##**
+# %%
 SEED = 42
 SEEDS = [42, 123, 456, 789, 2024]
 np.random.seed(SEED)
@@ -67,13 +73,9 @@ device = torch.device('cuda' if torch.cuda.is_available()
                       else 'cpu')
 print(f"Device: {device}")
 print(f"Seeds for stability check: {SEEDS}")
-
+# %% [markdown]
+# **## CONFIGURATION Architecture, batch size, loss weights, and learning rate ##**
 # %%
-# ============================================================================
-# CELL 2: CONFIGURATION — Matches Manuscript Table 2 Exactly
-# ============================================================================
-# REVIEWER 4.8, 5.6, 5.7, 5.8: Architecture, batch size, loss weights,
-# and learning rate now match the manuscript description.
 from configs.HiOmicsConfig import HiOmicsConfig
 config = HiOmicsConfig()
 os.makedirs(config.results_path, exist_ok=True)
@@ -86,15 +88,15 @@ for k, v in vars(config).items():
     if not k.startswith('_'):
         print(f"  {k}: {v}")
 
+# %% [markdown]
+# **## DATA LOADING — ALL CANCER TYPES ##**
 # %%
-# ============================================================================
-# CELL 3: DATA LOADING — ALL CANCER TYPES (Reviewer 4.1)
-# ============================================================================
-# ---------- Execute ----------
 from dataset.loader import MLOmicsDataLoader
 data_loader = MLOmicsDataLoader(config.data_path, data_variant=config.data_variant)
 
-# REVIEWER 4.1: Discover and load ALL cancer types
+# %% [markdown]
+# **## Discover and load ALL cancer types ##**
+# %%
 discovered_cancers = data_loader.discover_cancer_types()
 
 omics_data, raw_omics_data, survival_data, cancer_labels, sample_ids, quality_report = \
@@ -117,20 +119,15 @@ for cancer, n in sorted(quality_report.items(), key=lambda x: -x[1]):
     name = MLOmicsDataLoader.CANCER_FULL_NAMES.get(cancer, '')
     print(f"  {cancer:6s}: {n:4d} patients  {name}")
 
+# %% [markdown]
+# **## DATASET EXPLORATION ##**
 # %%
-# ============================================================================
-# CELL 4: DATASET EXPLORATION & VISUALIZATION
-# ============================================================================
 print(f"\nDataset statistics:")
 print(f"  Total patients: {len(cancer_labels):,}")
 print(f"  Cancer types: {len(quality_report)}")
-
+# %% [markdown]
+# **## PREPROCESSING, Raw pre-imputation data is stored, and Feature selection ##**
 # %%
-# ============================================================================
-# CELL 4: PREPROCESSING — Preserves raw data for imputation sensitivity
-# ============================================================================
-# REVIEWER 4.6 / 5.2: Raw pre-imputation data is stored in `raw_omics_data`.
-# Feature selection from 18,984 → 2,000 is now EXPLICITLY documented.
 print("Preprocessing omics data (with documented feature selection)...")
 from dataset.preprocessor import MultiOmicsPreprocessor
 preprocessor = MultiOmicsPreprocessor(config)
@@ -143,14 +140,9 @@ n_classes = len(label_encoder.classes_)
 print(f"\nEncoded {n_classes} cancer types")
 print(f"Processed feature dimensions: { {m: d.shape for m, d in processed_data.items()} }")
 
-# ============================================================================
-# CELL 6: PREPROCESSING VISUALIZATION
-# ============================================================================
-# Visualize the feature selection pipeline and data quality after preprocessing.
-
-# ============================================================================
-# CELL 5: PyTorch Dataset
-# ============================================================================
+# %% [markdown]
+# **## PyTorch Dataset ##**
+# %%
 from dataset.dataset import MultiOmicsDataset
 full_dataset = MultiOmicsDataset(
     processed_data, labels_encoded,
@@ -160,8 +152,9 @@ feature_dims = full_dataset.get_feature_dims()
 print(f"Dataset: {len(full_dataset)} samples")
 print(f"Feature dims: {feature_dims}")
 
-# ============================================================================
-# Verify architecture matches Table 2
+# %% [markdown]
+# **## Verify architecture ##**
+# %%
 from models.transformer import HiOmicsFormer
 model = HiOmicsFormer(feature_dims, config).to(device)
 total_params = sum(p.numel() for p in model.parameters())
@@ -171,19 +164,20 @@ print(f"Transformer layers: {config.num_encoder_layers} (manuscript: 4) ✓" if 
 print(f"Attention heads: {config.num_heads} (manuscript: 8) ✓" if config.num_heads == 8 else "✗ MISMATCH")
 print(f"Clusters: {config.num_clusters} (manuscript: 9) ✓" if config.num_clusters == 9 else "✗ MISMATCH")
 
-# ============================================================================
-# CELL 7: LOSS FUNCTION — Eq. 10: L = L_recon + 0.1·L_CL + 0.5·L_DEC
-# ============================================================================
-# REVIEWER 5.7: Loss weights now match manuscript Eq. 10.
+# %% [markdown]
+# Check the model structure
+# %%
+print(model)
+# %% [markdown]
+# **## Loss weights ##**
+# %%
 print(f"Loss weights: L_recon={config.lambda_recon}, "
       f"λ_CL={config.lambda_CL}, λ_DEC={config.lambda_DEC}")
 print(f"Matches Eq. 10: L = {config.lambda_recon}·L_recon + "
       f"{config.lambda_CL}·L_CL + {config.lambda_DEC}·L_DEC ✓")
-
+# %% [markdown]
+# ** FUnction for TRAINING UTILITIES ##**
 # %%
-# ============================================================================
-# CELL 8: TRAINING UTILITIES
-# ============================================================================
 def init_centroids(model, loader, config, device):
     """K-means centroid initialization."""
     model.eval()
@@ -194,7 +188,7 @@ def init_centroids(model, loader, config, device):
             out = model(batch)
             all_z.append(out['z'].cpu().numpy())
         z = np.concatenate(all_z)
-    
+
     km = KMeans(n_clusters=config.num_clusters, random_state=SEED, n_init=20)
     km.fit(z)
     with torch.no_grad():
@@ -203,15 +197,10 @@ def init_centroids(model, loader, config, device):
 
 print("Training utilities defined.")
 
-# ============================================================================
-# CELL 9: 5-FOLD STRATIFIED CROSS-VALIDATION (Reviewer 4.2)
-# ============================================================================
-# REVIEWER 4.2: "Section 2.5.2 describes 5-fold CV. The notebook contains
-# no CV loop. Instead, a single train_test_split." → Implemented properly.
-#
-# Each fold: train model from scratch, evaluate on held-out fold.
-# Report: mean ± SD across 5 folds for ALL metrics.
 
+# %% [markdown]
+# **## 5-FOLD STRATIFIED CROSS-VALIDATION ##**
+# %%
 skf = StratifiedKFold(n_splits=config.n_folds, shuffle=True, random_state=SEED)
 
 fold_results = []
@@ -225,18 +214,18 @@ print("=" * 70)
 
 for fold_idx, (train_val_idx, test_idx) in enumerate(skf.split(
         np.zeros(len(labels_encoded)), labels_encoded)):
-    
+
     print(f"\n{'─'*70}")
     print(f"FOLD {fold_idx + 1}/{config.n_folds}")
     print(f"{'─'*70}")
     print(f"  Train+Val: {len(train_val_idx)}, Test: {len(test_idx)}")
-    
+
     # Split train into train/val (80/20 of train portion)
     train_idx, val_idx = train_test_split(
         train_val_idx, test_size=0.2,
         stratify=labels_encoded[train_val_idx], random_state=SEED + fold_idx
     )
-    
+
     # DataLoaders
     train_loader = DataLoader(full_dataset, batch_size=config.batch_size,
                               sampler=SubsetRandomSampler(train_idx),
@@ -247,31 +236,31 @@ for fold_idx, (train_val_idx, test_idx) in enumerate(skf.split(
     test_loader = DataLoader(full_dataset, batch_size=config.batch_size,
                              sampler=SubsetRandomSampler(test_idx),
                              num_workers=0)
-    
+
     # Fresh model each fold
     model_fold = HiOmicsFormer(feature_dims, config).to(device)
-    
+
     # --- Phase 1: Pre-training (reconstruction only) ---
     print("  Phase 1: Pre-training encoder...")
     config_p1 = HiOmicsConfig()
     config_p1.lambda_DEC = 0.0  # No clustering
     config_p1.max_epochs = 30
     config_p1.patience = 15
-    
+
     criterion_p1 = HiOmicsLoss(config_p1)
     optimizer_p1 = torch.optim.AdamW(model_fold.parameters(),
                                       lr=config.learning_rate,
                                       weight_decay=config.weight_decay)
     scheduler_p1 = CosineAnnealingWarmRestarts(optimizer_p1, T_0=10, T_mult=2)
-    
+
     trainer_p1 = HiOmicsTrainer(model_fold, optimizer_p1, criterion_p1,
                                  scheduler_p1, config_p1, device)
     history_p1 = trainer_p1.train_fold(train_loader, val_loader,
                           labels_encoded[train_idx], labels_encoded[val_idx])
-    
+
     # Initialize centroids
     init_centroids(model_fold, train_loader, config, device)
-    
+
     # --- Phase 2: Fine-tune with clustering ---
     print("  Phase 2: Fine-tuning with clustering...")
     criterion_p2 = HiOmicsLoss(config)
@@ -279,22 +268,22 @@ for fold_idx, (train_val_idx, test_idx) in enumerate(skf.split(
                                       lr=config.learning_rate,
                                       weight_decay=config.weight_decay)
     scheduler_p2 = CosineAnnealingWarmRestarts(optimizer_p2, T_0=20, T_mult=2)
-    
+
     trainer_p2 = HiOmicsTrainer(model_fold, optimizer_p2, criterion_p2,
                                  scheduler_p2, config, device)
     history_p2 = trainer_p2.train_fold(train_loader, val_loader,
                           labels_encoded[train_idx], labels_encoded[val_idx])
-    
+
     # --- Evaluate on test fold ---
     z_test, pred_test, test_metrics = trainer_p2.evaluate(
         test_loader, labels_encoded[test_idx]
     )
-    
+
     fold_results.append(test_metrics)
     fold_predictions[fold_idx] = {'test_idx': test_idx, 'pred': pred_test, 'z': z_test}
     fold_histories[fold_idx] = {'p1': history_p1, 'p2': history_p2}
     fold_embeddings[fold_idx] = z_test
-    
+
     print(f"  ▶ Fold {fold_idx+1} results: "
           f"Sil={test_metrics['silhouette']:.4f}, "
           f"NMI={test_metrics['nmi']:.4f}, "
@@ -316,11 +305,10 @@ for metric in ['silhouette', 'nmi', 'ari']:
 # Keep last fold model for downstream analysis
 model = model_fold
 
-# ============================================================================
-# CELL 12: TRAINING & EMBEDDING VISUALIZATION
-# ============================================================================
-# Visualize training progress, learned embeddings, and cluster quality.
-
+# %% [markdown]
+# **## Visualize training progress, learned embeddings, and cluster quality ##**
+# %%
+# %matplotlib inline
 fig = plt.figure(figsize=(22, 16))
 gs = gridspec.GridSpec(3, 3, hspace=0.4, wspace=0.35)
 
@@ -463,11 +451,14 @@ ax.set_title('(i) PCA of Learned Embeddings', fontweight='bold')
 ax.legend(fontsize=6, ncol=2, markerscale=2, loc='best')
 
 plt.suptitle('Figure 3: Training Results & Learned Representations', fontsize=16, fontweight='bold', y=1.01)
-plt.savefig(f'{config.figures_path}/fig3_training_embeddings.png', dpi=300, bbox_inches='tight')
-#plt.show()
+#plt.savefig(f'{config.figures_path}/fig3_training_embeddings.png', dpi=300, bbox_inches='tight')
+plt.show()
 
 print(f"\nEmbedding visualization statistics:")
 print(f"  Samples visualized: {len(z_viz)}")
 print(f"  Unique cancer types: {len(unique_labels)}")
 print(f"  Unique clusters: {len(unique_preds)}")
 print(f"  Mean silhouette: {np.mean(sil_samples):.4f}")
+
+# %% [markdown]
+# **## Finished ##**
