@@ -307,10 +307,12 @@ model = model_fold
 
 # %% [markdown]
 # **## Visualize training progress, learned embeddings, and cluster quality ##**
+# %% [markdown]
+# **## Summary Result ##**
 # %%
 # %matplotlib inline
 fig = plt.figure(figsize=(22, 16))
-gs = gridspec.GridSpec(3, 3, hspace=0.4, wspace=0.35)
+gs = gridspec.GridSpec(2, 3, hspace=0.4, wspace=0.35)
 
 # --- Fig 3a: Training loss curves per fold ---
 ax = fig.add_subplot(gs[0, 0])
@@ -408,57 +410,17 @@ ax.set_xlabel('Predicted Cluster')
 ax.set_ylabel('True Cancer Type')
 ax.set_title('(f) Cancer Type vs Cluster Assignment', fontweight='bold')
 
-# --- Fig 3g: Silhouette scores distribution ---
-ax = fig.add_subplot(gs[2, 0])
 from sklearn.metrics import silhouette_samples
 sil_samples = silhouette_samples(z_viz, pred_viz)
-y_lower = 0
-for cl in sorted(unique_preds):
-    mask = pred_viz == cl
-    sil_cl = np.sort(sil_samples[mask])
-    ax.barh(range(y_lower, y_lower + len(sil_cl)), sil_cl, height=1.0,
-            color=PALETTE[cl % len(PALETTE)], edgecolor='none')
-    ax.text(-0.05, y_lower + len(sil_cl)/2, f'C{cl}', fontsize=7, va='center')
-    y_lower += len(sil_cl) + 5
-ax.axvline(np.mean(sil_samples), color='red', linestyle='--', alpha=0.7,
-           label=f'Mean={np.mean(sil_samples):.3f}')
-ax.set_xlabel('Silhouette Coefficient')
-ax.set_title('(g) Per-Sample Silhouette', fontweight='bold')
-ax.legend(fontsize=8)
-
-# --- Fig 3h: Cluster size distribution ---
-ax = fig.add_subplot(gs[2, 1])
-cluster_counts = pd.Series(pred_viz).value_counts().sort_index()
-ax.bar(cluster_counts.index, cluster_counts.values,
-       color=[PALETTE[i % len(PALETTE)] for i in cluster_counts.index],
-       edgecolor='white')
-ax.set_xlabel('Cluster ID')
-ax.set_ylabel('Number of Samples')
-ax.set_title('(h) Cluster Size Distribution', fontweight='bold')
-for idx, val in zip(cluster_counts.index, cluster_counts.values):
-    ax.text(idx, val + 2, str(val), ha='center', fontsize=8)
-
-# --- Fig 3i: PCA of embeddings (2D) ---
-ax = fig.add_subplot(gs[2, 2])
-pca_emb = PCA(n_components=2)
-z_pca = pca_emb.fit_transform(z_viz)
-for lab in unique_labels:
-    mask = labels_viz == lab
-    ax.scatter(z_pca[mask, 0], z_pca[mask, 1], c=[colors_map[lab]], s=8, alpha=0.6, label=lab)
-ax.set_xlabel(f'PC1 ({pca_emb.explained_variance_ratio_[0]*100:.1f}%)')
-ax.set_ylabel(f'PC2 ({pca_emb.explained_variance_ratio_[1]*100:.1f}%)')
-ax.set_title('(i) PCA of Learned Embeddings', fontweight='bold')
-ax.legend(fontsize=6, ncol=2, markerscale=2, loc='best')
 
 plt.suptitle('Figure 3: Training Results & Learned Representations', fontsize=16, fontweight='bold', y=1.01)
-#plt.savefig(f'{config.figures_path}/fig3_training_embeddings.png', dpi=300, bbox_inches='tight')
+plt.savefig(f'{config.figures_path}/fig3_training_embeddings.png', dpi=300, bbox_inches='tight')
 plt.show()
-
+# %%
 print(f"\nEmbedding visualization statistics:")
 print(f"  Samples visualized: {len(z_viz)}")
 print(f"  Unique cancer types: {len(unique_labels)}")
 print(f"  Unique clusters: {len(unique_preds)}")
 print(f"  Mean silhouette: {np.mean(sil_samples):.4f}")
-
 # %% [markdown]
 # **## Finished ##**
