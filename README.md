@@ -1,4 +1,4 @@
-OmicsTransformerFusion
+## OmicsTransformerFusion
 OmicsTransformerFusion is a deep learning framework designed for multi-omics data integration and cancer subtype identification. By leveraging modality-specific Transformer encoders and advanced fusion techniques, the model captures both intra-modality features and inter-modality correlations across large-scale genomic datasets.
 
 ## Core Features
