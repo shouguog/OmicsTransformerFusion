@@ -1,0 +1,8 @@
+## TrustWorthy_transformer
+This repository contains the code of Transformer-based Trustworthy Multimodal Classification.
+
+## Requirment
+* Python 3
+* Pytorch 1.7.0
+* sklearn
+* numpy
